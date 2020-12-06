@@ -16,6 +16,7 @@ import com.github.javaparser.utils.Log;
 import com.github.javaparser.utils.SourceRoot;
 
 import java.nio.file.Paths;
+import java.util.Arrays;
 
 /**
  * Main Class
@@ -95,23 +96,61 @@ class ReparationTool
 
         // Generate the initial population
         int popSize = (this.popSize < this.fitnessEval)? this.popSize: this.fitnessEval; // Constrained by fitness evaluation limit
-        Solution population[] = new Solution[popSize]; 
+        Solution population[] = new Solution[popSize]; // Sorted array of solutions (by fitness)
         for (int i = 0; i < popSize; i++)
             population[i] = new Solution(cu.clone());
+        Arrays.sort(population, Solution::compare);
         // Continue until all fitness evaluations are performed
         this.fitnessEval -= popSize;
         while (this.fitnessEval > 0)
-            this.fitnessEval -= this.nextGeneration();
+            this.fitnessEval -= this.nextGeneration(population);
     }
 
-    private int nextGeneration()
+    private int nextGeneration(Solution population[]) /////////////////////////////////////////////////////////////////////////NOT FINISHED
     {
         // Set the number of offsprings to be generated (Constrained by fitness evaluation limit)
-        int offsprings = (this.offspringCnt < this.fitnessEval)? this.offspringCnt: this.fitnessEval;
-        // Generate the offsprings and update the population
-        for (int i = 0; i < offsprings; i++)
-            Log.info("Next Generation");///////////////////////////////////////////////////////////////////////////////////////NOT FINISHED
-        return offsprings;
+        int offspringCnt = (this.offspringCnt < this.fitnessEval)? this.offspringCnt: this.fitnessEval;
+        // Generate the offsprings
+        Solution offsprings[] = new Solution[offspringCnt];
+        for (int i = 0; i < offspringCnt; i++) {
+            int parents[] = this.getParents();
+            offsprings[i] = new Solution(population, parents[0], parents[1]);
+        }
+        // Update the population
+
+        return offspringCnt;
+    }
+
+    private int[] getParents() ////////////////////////////////////////////////////////////////////////////////////////////////NOT FINISHED
+    {
+        int parents[] = new int[2]; // Parent indexes inside the population
+        Log.info("Choosing parents");
+
+        return parents;
+    }
+
+    // This saves all the files we just repaired to an output directory. 
+    public void saveAll() //////////////////////////////////////////////////////////////////////////ISSUES: May not print the best solution
+    {
+        this.sourceRoot.saveAll(
+            // The path of the Maven module/project which contains the ConcurrencyRepairTool class.
+            CodeGenerationUtils.mavenModuleRoot(ConcurrencyRepairTool.class)
+                // appended with a path to "output"
+                .resolve(Paths.get("output")));
+    }
+}
+
+class Solution
+{
+    private CompilationUnit cu;
+    public int fitness;
+
+    // 'Random' solution generator
+    Solution(CompilationUnit cu) //////////////////////////////////////////////////////////////////////////////////////////////NOT FINISHED
+    {
+        Log.info("Creating 'random' solution");
+        this.cu = cu; // Copy of the original
+        // Initialize
         
         /////////////////////////////////////////////////////////////////////////////////////////////////////////////SAMPLE JAVAPARSER CODE
         /*
@@ -138,37 +177,32 @@ class ReparationTool
         }, null);
         */
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    }
-
-    // This saves all the files we just repaired to an output directory. 
-    public void saveAll() //////////////////////////////////////////////////////////////////////////ISSUES: May not print the best solution
-    {
-
-        this.sourceRoot.saveAll(
-            // The path of the Maven module/project which contains the ConcurrencyRepairTool class.
-            CodeGenerationUtils.mavenModuleRoot(ConcurrencyRepairTool.class)
-                // appended with a path to "output"
-                .resolve(Paths.get("output")));
-    }
-}
-
-class Solution
-{
-    private CompilationUnit cu;
-    public int fitness;
-
-    Solution(CompilationUnit cu) 
-    {
-        Log.info("Creating solution");/////////////////////////////////////////////////////////////////////////////////////////NOT FINISHED
-        this.cu = cu; // Copy of the original
-        // 
 
         // Evaluate
         this.getFitness();
     }
 
-    private void getFitness()
+    // Creates a solution based on two given parents (i.e. their indexes inside
+    // the population array)
+    Solution(Solution population[], int p1, int p2) ///////////////////////////////////////////////////////////////////////////NOT FINISHED
     {
-        Log.info("Evaluating solution");///////////////////////////////////////////////////////////////////////////////////////NOT FINISHED
+        Log.info("Creating offspring solution");
+        // Inherit
+
+        // Mutate
+
+        // Evaluate
+        this.getFitness();
+    }
+
+    private void getFitness()//////////////////////////////////////////////////////////////////////////////////////////////////NOT FINISHED
+    {
+        Log.info("Evaluating solution");
+    }
+
+    // Comparator used for keeping the population array sorted
+    public static int compare(Solution a, Solution b)
+    {
+        return b.fitness - a.fitness;
     }
 }
