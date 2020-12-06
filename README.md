@@ -2,19 +2,19 @@ MAIN FOLDERS/FILES:
 
 1) Main program (source code):
 
-    ./src/main/java/cs454/ConcurrencyRepairTool.java
+    /project/src/main/java/cs454/ConcurrencyRepairTool.java
 
 2) Sources (programs to be improved):
 
-    ./src/main/sources
+    /project/src/main/sources
 
 3) Compilation folder:
 
-    ./target
+    /project/target
 
 4) Output folder (improved programs):
 
-    ./output
+    /project/output
 
 
 COMPILATION:
@@ -32,7 +32,7 @@ COMPILATION:
     $ mvn clean install
 
 
-EXECUTION:
+EXECUTION (from project folder):
 
 1) Run with Java JDK11 (must have been previously installed):
 
