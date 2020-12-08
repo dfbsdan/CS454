@@ -1,13 +1,13 @@
 package cs454;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////TEMPORARY CODE(?)
-/*
+
 import com.github.javaparser.ast.expr.BinaryExpr;
 import com.github.javaparser.ast.stmt.IfStmt;
 import com.github.javaparser.ast.stmt.Statement;
 import com.github.javaparser.ast.visitor.ModifierVisitor;
 import com.github.javaparser.ast.visitor.Visitable;
-*/
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 import com.github.javaparser.ast.CompilationUnit;
@@ -15,6 +15,9 @@ import com.github.javaparser.utils.CodeGenerationUtils;
 import com.github.javaparser.utils.Log;
 import com.github.javaparser.utils.SourceRoot;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 
@@ -25,10 +28,6 @@ public class ConcurrencyRepairTool
 {
     public static void main( String[] args )
     {
-        // Names of source java programs to be modified by the application.
-        // All must be inside the src/main/sources folder.
-        String[] sources = {"sample.java", "sample(copy).java"};/////////////////////////////////////////////////////////////////MAY CHANGE
-
         if(args.length != 4) { //////////////////////////////////////////////////////////////////////////////////////////////////MAY CHANGE
             throw new IllegalArgumentException("Wrong amount of arguments.");
         }
@@ -59,10 +58,9 @@ public class ConcurrencyRepairTool
         ReparationTool repTool = new ReparationTool(populationSize, fitnessEvaluations, offsprings, mutationCnt);
 
         // Repair all sources
-        for(String src : sources) {
-			repTool.repair(src);
-        }
-        
+        for(String src : repTool.sources)
+            repTool.repair(src);
+
         // Finish
         repTool.saveAll();
     }
@@ -70,6 +68,13 @@ public class ConcurrencyRepairTool
 
 class ReparationTool
 {
+    // The path of the Maven module/project which contains the ConcurrencyRepairTool class.
+    // appended with a path to "output".
+    private final String outputFile = CodeGenerationUtils.mavenModuleRoot(ConcurrencyRepairTool.class)
+        .resolve(Paths.get("output")).toString();
+    // Names of source java programs to be modified by the application.
+    // All must be inside the src/main/sources folder.
+    public String[] sources;
     // SourceRoot is a tool that read and writes Java files from packages on a certain root directory.
     // In this case the root directory is found by taking the root from the current Maven module,
     // with src/main/sources appended.
@@ -80,7 +85,15 @@ class ReparationTool
     private int mutationCnt; // Number of mutations performed per new offspring
 
     ReparationTool(int popSize, int fitnessEval, float offsprings, int mutationCnt) {
-        this.sourceRoot = new SourceRoot(CodeGenerationUtils.mavenModuleRoot(ConcurrencyRepairTool.class).resolve("src/main/sources"));
+        Path sourceRoot = CodeGenerationUtils.mavenModuleRoot(ConcurrencyRepairTool.class)
+            .resolve("src/main/sources");
+        try {
+            this.sources = Files.list(sourceRoot).filter(Files::isRegularFile)
+                .map(p -> p.getFileName().toString()).toArray(String[]::new);
+        } catch(IOException e) {
+            e.getCause();
+        }
+        this.sourceRoot = new SourceRoot(sourceRoot);
         this.popSize = popSize;
         this.fitnessEval = fitnessEval;
         this.offspringCnt = (int)(offsprings * popSize);
@@ -94,16 +107,19 @@ class ReparationTool
         CompilationUnit cu = this.sourceRoot.parse("", src);
         Log.info("Repairing: " + src);
 
-        // Generate the initial population
-        int popSize = (this.popSize < this.fitnessEval)? this.popSize: this.fitnessEval; // Constrained by fitness evaluation limit
+        // Create the population (size constrained by fitness evaluation limit)
+        int popSize = (this.popSize < this.fitnessEval)? this.popSize: this.fitnessEval;
         Solution population[] = new Solution[popSize]; // Sorted array of solutions (by fitness)
+        // Generate the initial population
         for (int i = 0; i < popSize; i++)
             population[i] = new Solution(cu.clone());
         Arrays.sort(population, Solution::compare);
+        int fitnessEval = this.fitnessEval - popSize;
         // Continue until all fitness evaluations are performed
-        this.fitnessEval -= popSize;
-        while (this.fitnessEval > 0)
-            this.fitnessEval -= this.nextGeneration(population);
+        while (fitnessEval > 0)
+            fitnessEval -= this.nextGeneration(population);
+        // Save the best solution
+        this.sourceRoot.add(this.outputFile, src, population[0].cu);
     }
 
     private int nextGeneration(Solution population[]) /////////////////////////////////////////////////////////////////////////NOT FINISHED
@@ -124,47 +140,43 @@ class ReparationTool
     private int[] getParents() ////////////////////////////////////////////////////////////////////////////////////////////////NOT FINISHED
     {
         int parents[] = new int[2]; // Parent indexes inside the population
-        Log.info("Choosing parents");
+        //Log.info("Choosing parents");
 
         return parents;
     }
 
     // This saves all the files we just repaired to an output directory. 
-    public void saveAll() //////////////////////////////////////////////////////////////////////////ISSUES: May not print the best solution
+    public void saveAll()
     {
-        this.sourceRoot.saveAll(
-            // The path of the Maven module/project which contains the ConcurrencyRepairTool class.
-            CodeGenerationUtils.mavenModuleRoot(ConcurrencyRepairTool.class)
-                // appended with a path to "output"
-                .resolve(Paths.get("output")));
+        this.sourceRoot.saveAll();
     }
 }
 
 class Solution
 {
-    private CompilationUnit cu;
+    public CompilationUnit cu;
     public int fitness;
 
     // 'Random' solution generator
     Solution(CompilationUnit cu) //////////////////////////////////////////////////////////////////////////////////////////////NOT FINISHED
     {
-        Log.info("Creating 'random' solution");
+        //Log.info("Creating 'random' solution");
         this.cu = cu; // Copy of the original
         // Initialize
         
         /////////////////////////////////////////////////////////////////////////////////////////////////////////////SAMPLE JAVAPARSER CODE
         /*
         cu.accept(new ModifierVisitor<Void>() {
-             * For every if-statement, see if it has a comparison using "!=".
-             * Change it to "==" and switch the "then" and "else" statements around.
+             // For every if-statement, see if it has a comparison using "!=".
+             // Change it to "==" and switch the "then" and "else" statements around.
             @Override
             public Visitable visit(IfStmt n, Void arg) {
                 // Figure out what to get and what to cast simply by looking at the AST in a debugger! 
                 n.getCondition().ifBinaryExpr(binaryExpr -> {
                     if (binaryExpr.getOperator() == BinaryExpr.Operator.NOT_EQUALS && n.getElseStmt().isPresent()) {
-                        * It's a good idea to clone nodes that you move around.
-                            JavaParser (or you) might get confused about who their parent is!
-                        *
+                        // It's a good idea to clone nodes that you move around.
+                        //    JavaParser (or you) might get confused about who their parent is!
+                        //
                         Statement thenStmt = n.getThenStmt().clone();
                         Statement elseStmt = n.getElseStmt().get().clone();
                         n.setThenStmt(elseStmt);
@@ -186,7 +198,7 @@ class Solution
     // the population array)
     Solution(Solution population[], int p1, int p2) ///////////////////////////////////////////////////////////////////////////NOT FINISHED
     {
-        Log.info("Creating offspring solution");
+        //Log.info("Creating offspring solution");
         // Inherit
 
         // Mutate
@@ -197,7 +209,7 @@ class Solution
 
     private void getFitness()//////////////////////////////////////////////////////////////////////////////////////////////////NOT FINISHED
     {
-        Log.info("Evaluating solution");
+        //Log.info("Evaluating solution");
     }
 
     // Comparator used for keeping the population array sorted
