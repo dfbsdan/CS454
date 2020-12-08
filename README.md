@@ -36,7 +36,7 @@ EXECUTION (from project folder):
 
 1) Run with Java JDK11 (must have been previously installed):
 
-    $ java -jar target/project-1.0-SNAPSHOT-shaded.jar [arg1] [arg2] [arg3] [arg4]
+    $ java -jar target/project-1.0-SNAPSHOT-shaded.jar [arg1] [arg2] [arg3] [arg4] [arg5] [arg6]
 
 Where:
 
@@ -48,6 +48,11 @@ Where:
 
     arg4: Integer (0<=x): Number of mutations performed for each offspring.
 
+    arg5: Integer (0<x): Maximum number of helper threads to be created to perform fitness evaluations.
+
+    arg6: Integer (0<x): Maximum time -in seconds- a fitness evaluation can take (if the process 
+                         timesout, the fitness is set to Integer.MIN_VALUE)
+
 Default for testing:
 
-    $ java -jar target/project-1.0-SNAPSHOT-shaded.jar 50 300 0.4 1      // REVISION REQUIRED
+    $ java -jar target/project-1.0-SNAPSHOT-shaded.jar 50 300 0.4 1 10 20    // REVISION REQUIRED
