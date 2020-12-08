@@ -144,7 +144,7 @@ class Population
     private int fitnessEval; // Remaining fitness evaluations
     private final int offspringCnt; // Max. number of new offsprings per generation
     private final int mutationCnt; // Number of mutations performed per new offspring
-    private final Solution solutions[]; // Sorted array of solutions (by fitness)
+    private final Solution solutions[]; // Sorted array of solutions (by fitness, descending order)
     private final ExecutorService pool; // Threadpool used for fitness evaluations
     private final int timeout; // Timeout of a fitness evaluation
 
@@ -205,7 +205,7 @@ class Population
     // Return the best solution found so far
     public Solution bestSolution()
     {
-        return solutions[size-1];
+        return solutions[0];
     }
 
     // Sets the fitness for all solutions that have not been evaluated
