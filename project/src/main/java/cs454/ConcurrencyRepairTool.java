@@ -31,8 +31,8 @@ public class ConcurrencyRepairTool
             throw new IllegalArgumentException("Wrong amount of arguments.");
         }
         int populationSize = Integer.parseInt(args[0]);
-        if(populationSize <= 0) {
-            throw new IllegalArgumentException("The population size has to be greater than 0.");
+        if(populationSize <= 1) {
+            throw new IllegalArgumentException("The population size has to be greater than 1.");
         }
         int fitnessEvaluations = Integer.parseInt(args[1]);
         if(fitnessEvaluations <= 0) {
@@ -97,7 +97,7 @@ class ReparationTool
         }
         this.pool = Executors.newFixedThreadPool(poolSize);
         this.sourceRoot = new SourceRoot(sourceRoot);
-        this.popSize = popSize;
+        this.popSize = (popSize < fitnessEval)? popSize: fitnessEval;
         this.fitnessEval = fitnessEval;
         int offspringCnt = (int)(offsprings * popSize);
         this.offspringCnt = (offspringCnt > 0)? offspringCnt: 1; // At least one offspring per generation
@@ -142,9 +142,9 @@ class Population
     private final ExecutorService pool; // Threadpool used for fitness evaluations
     private final int timeout; // Timeout of a fitness evaluation
 
-    Population(int popSize, int fitnessEval, int offspringCnt, int mutationCnt, int timeout, ExecutorService pool, CompilationUnit cu)
+    Population(int size, int fitnessEval, int offspringCnt, int mutationCnt, int timeout, ExecutorService pool, CompilationUnit cu)
     {
-        size = (popSize < fitnessEval)? popSize: fitnessEval;
+        this.size = size;
         this.fitnessEval = fitnessEval - size;
         this.offspringCnt = offspringCnt;
         this.mutationCnt = mutationCnt;

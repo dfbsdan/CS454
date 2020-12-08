@@ -40,7 +40,8 @@ EXECUTION (from project folder):
 
 Where:
 
-    arg1: Integer (0<x): Population Size (per program improved).
+    arg1: Integer (1<x): Population Size (per program improved). At least two because two parents
+                         are assumed to exist always.
 
     arg2: Integer (0<x): Number of fitness evaluations (per program improved).
 
@@ -51,7 +52,7 @@ Where:
     arg5: Integer (0<x): Maximum number of helper threads to be created to perform fitness evaluations.
 
     arg6: Integer (0<x): Maximum time -in seconds- a fitness evaluation can take (if the process 
-                         timesout, the fitness is set to Integer.MIN_VALUE)
+                         times out, the fitness is set to Integer.MIN_VALUE)
 
 Default for testing:
 
