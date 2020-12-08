@@ -11,20 +11,14 @@ import com.github.javaparser.ast.visitor.Visitable;
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 import com.github.javaparser.ast.CompilationUnit;
-import com.github.javaparser.utils.CodeGenerationUtils;
-import com.github.javaparser.utils.Log;
-import com.github.javaparser.utils.SourceRoot;
+import com.github.javaparser.utils.*;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.*;
 import java.util.Arrays;
-import java.util.concurrent.ExecutorService; 
-import java.util.concurrent.Executors; 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Callable;
+import java.util.concurrent.*;
 
 /**
  * Main Class
@@ -162,7 +156,7 @@ class Population
             solutions[i] = new Solution(cu.clone(), tasks, timeout);
         evaluateSolutions();
         Arrays.sort(solutions, Solution::compare);
-        //printSolutions(); // Testing purposes
+        printSolutions(); // Testing purposes
     }
 
     // Evolve until all fitness evaluations have been performed
@@ -183,7 +177,7 @@ class Population
             offsprings[i] = new Solution(solutions[parents[0]].cu, solutions[parents[1]].cu, tasks, timeout);
         }
         evaluateSolutions();
-        //printSolutions(); // Testing purposes
+        printSolutions(); // Testing purposes
         // TODO: Update the population
 
 
@@ -292,15 +286,34 @@ class Solution
     // Comparator used for keeping the population array sorted
     public static int compare(Solution a, Solution b)
     {
-        return b.fitness - a.fitness;
+        double diff = (double)b.fitness - a.fitness;
+        return (diff > 0)? 1: (diff < 0)? -1: 0;
     }
 }
 
 class FitnessEvaluator implements Callable<Void>
 {
     private final Solution sol;
-    private int timeout;
-    static int bufFitness = 0; ////////////////////////////////////////////////////////////////////////////////////////Testing purposes (should be deleted)
+    private final int timeout;
+    private final Runnable evaluator = new Thread() {
+        @Override
+        public void run() { 
+            // TODO: Evaluate the solution and set its fitness. This function does not need to take time into consideration
+            // since it is interrupted on timeout
+
+            /////////////////////////////////////////////////////////////////////////////////////////////////////////// Testing purposes only
+            sol.fitness = testFitness;
+            testFitness++;
+            if (sol.fitness % 2 == 0) {
+                try {
+                    TimeUnit.SECONDS.sleep(30);
+                } catch (InterruptedException e) {
+                }
+            }
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        }
+    };
+    static int testFitness = 0; ////////////////////////////////////////////////////////////////////////////////////////Testing purposes (line should be deleted)
 
     FitnessEvaluator(Solution sol, int timeout)
     {
@@ -308,11 +321,21 @@ class FitnessEvaluator implements Callable<Void>
         this.timeout = timeout;
     }
 
-    public Void call() ////////////////////////////////////////////////////////////////////////////////////////////////NOT FINISHED
-    {
-        // TODO: Evaluate the solution and set its fitness
-        sol.fitness = bufFitness;
-        bufFitness += 10; // Testing purposes
+    public Void call()
+    {   
+        final ExecutorService executor = Executors.newSingleThreadExecutor();
+        final Future future = executor.submit(evaluator);
+        executor.shutdown();
+        try {
+            future.get(timeout, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            sol.fitness = Integer.MIN_VALUE;
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        }
         return null;
     }
 }

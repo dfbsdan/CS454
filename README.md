@@ -55,4 +55,4 @@ Where:
 
 Default for testing:
 
-    $ java -jar target/project-1.0-SNAPSHOT-shaded.jar 50 300 0.4 1 10 20    // REVISION REQUIRED
+    $ java -jar target/project-1.0-SNAPSHOT-shaded.jar 20 100 0.4 1 20 5    // REVISION REQUIRED
