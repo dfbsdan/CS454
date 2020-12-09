@@ -36,7 +36,7 @@ EXECUTION (from project folder):
 
 1) Run with Java JDK11 (must have been previously installed):
 
-    $ java -jar target/project-1.0-SNAPSHOT-shaded.jar [arg1] [arg2] [arg3] [arg4] [arg5] [arg6]
+    $ java -jar target/project-1.0-SNAPSHOT-shaded.jar [arg1] [arg2] [arg3] [arg4] [arg5] [arg6] [arg7]
 
 Where:
 
@@ -51,9 +51,10 @@ Where:
 
     arg5: Integer (0<x): Maximum number of helper threads to be created to perform fitness evaluations.
 
-    arg6: Integer (0<x): Maximum time -in seconds- a fitness evaluation can take (if the process 
-                         times out, the fitness is set to Integer.MIN_VALUE)
+    arg6: Integer (0<x): Number of tests performed per program in order to obtain its fitness.
+
+    arg7: Integer (0<x): Maximum time -in seconds- a test can take (timeout).
 
 Default for testing:
 
-    $ java -jar target/project-1.0-SNAPSHOT-shaded.jar 20 100 0.4 1 20 5    // REVISION REQUIRED
+    $ java -jar target/project-1.0-SNAPSHOT-shaded.jar 20 100 0.4 1 30 20 5    // REVISION REQUIRED
