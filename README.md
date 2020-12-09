@@ -36,7 +36,7 @@ EXECUTION (from project folder):
 
 1) Run with Java JDK11 (must have been previously installed):
 
-    $ java -jar target/project-1.0-SNAPSHOT-shaded.jar [arg1] [arg2] [arg3] [arg4] [arg5] [arg6] [arg7]
+    $ java -jar target/project-1.0-SNAPSHOT-shaded.jar [arg1] [arg2] [arg3] [arg4] [arg5] [arg6] [arg7] [arg8]
 
 Where:
 
@@ -55,6 +55,9 @@ Where:
 
     arg7: Integer (0<x): Maximum time -in seconds- a test can take (timeout).
 
+    arg8: Float (0<x<=1): Percentage of the population's size to be randomly sampled for tournament
+                          selection (i.e. 'k' parameter).
+
 Default for testing:
 
-    $ java -jar target/project-1.0-SNAPSHOT-shaded.jar 20 100 0.4 1 30 20 5    // REVISION REQUIRED
+    $ java -jar target/project-1.0-SNAPSHOT-shaded.jar 15 40 0.4 1 10 20 5 0.4    // REVISION REQUIRED

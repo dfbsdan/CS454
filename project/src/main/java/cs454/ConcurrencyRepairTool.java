@@ -1,13 +1,13 @@
 package cs454;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////TEMPORARY CODE(?)
-
+/*
 import com.github.javaparser.ast.expr.BinaryExpr;
 import com.github.javaparser.ast.stmt.IfStmt;
 import com.github.javaparser.ast.stmt.Statement;
 import com.github.javaparser.ast.visitor.ModifierVisitor;
 import com.github.javaparser.ast.visitor.Visitable;
-
+*/
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 import com.github.javaparser.ast.CompilationUnit;
@@ -16,9 +16,7 @@ import com.github.javaparser.printer.PrettyPrinter;
 
 import java.io.IOException;
 import java.nio.file.*;
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.*;
 import java.lang.*;
 
@@ -29,7 +27,7 @@ public class ConcurrencyRepairTool
 {
     public static void main( String[] args )
     {
-        if(args.length != 7) { ////////////////////////////////////////////////////////////////////////////////////////MAY CHANGE
+        if(args.length != 8) { ////////////////////////////////////////////////////////////////////////////////////////MAY CHANGE
             throw new IllegalArgumentException("Wrong amount of arguments.");
         }
         int populationSize = Integer.parseInt(args[0]);
@@ -60,12 +58,16 @@ public class ConcurrencyRepairTool
         if(timeout <= 0) {
             throw new IllegalArgumentException("The timeout has to be greater than 0");
         }
+        float k = Float.parseFloat(args[7]);
+        if(k <= 0 || k > 1) {
+            throw new IllegalArgumentException("Incorrect population size percentage.");
+        }
 
         // JavaParser has a minimal logging class that normally logs nothing.
         // Let's ask it to write to standard out:
         Log.setAdapter(new Log.StandardOutStandardErrorAdapter());
 
-        ReparationTool repTool = new ReparationTool(populationSize, fitnessEvaluations, offsprings, mutationCnt, poolSize, testCnt, timeout);
+        ReparationTool repTool = new ReparationTool(populationSize, fitnessEvaluations, offsprings, mutationCnt, poolSize, testCnt, timeout, k);
         repTool.repairAll();
         repTool.finish();
     }
@@ -92,8 +94,9 @@ class ReparationTool
     private final int mutationCnt; // Number of mutations performed per new offspring
     private final int testCnt; // Number of tests to be performed for a fitness evaluation
     private final int timeout; // Timeout of a test
+    private final int k; // Number of individuals to be randomly sampled for tournament selection.
 
-    ReparationTool(int popSize, int fitnessEval, float offsprings, int mutationCnt, int poolSize, int testCnt, int timeout) {
+    ReparationTool(int popSize, int fitnessEval, float offsprings, int mutationCnt, int poolSize, int testCnt, int timeout, float k) {
         Path sourceRoot = CodeGenerationUtils.mavenModuleRoot(ConcurrencyRepairTool.class)
             .resolve("src/main/sources");
         try {
@@ -106,11 +109,13 @@ class ReparationTool
         this.sourceRoot = new SourceRoot(sourceRoot);
         this.popSize = (popSize < fitnessEval)? popSize: fitnessEval;
         this.fitnessEval = fitnessEval;
-        int offspringCnt = (int)(offsprings * popSize);
-        this.offspringCnt = (offspringCnt > 0)? offspringCnt: 1; // At least one offspring per generation
+        int i = (int)(offsprings * popSize);
+        this.offspringCnt = (i > 0)? i: 1; // At least one offspring per generation
         this.mutationCnt = mutationCnt;
         this.testCnt = testCnt;
         this.timeout = timeout;
+        i = (int)(k * popSize);
+        this.k = (i > 1)? i: 2; // At least two individuals used in tournament selection.
     }
 
     public void repairAll()
@@ -125,7 +130,7 @@ class ReparationTool
         CompilationUnit cu = this.sourceRoot.parse("", src);
         Log.info("Repairing: " + src);
 
-        Population pop = new Population(popSize, fitnessEval, offspringCnt, mutationCnt, testCnt, timeout, src, pool, cu);
+        Population pop = new Population(popSize, fitnessEval, offspringCnt, mutationCnt, testCnt, timeout, k, src, pool, cu);
         pop.evolve();
         // Store the best solution in the /output directory
         cu = pop.bestSolution().cu;
@@ -151,10 +156,11 @@ class Population
     private final ExecutorService pool; // Threadpool used for fitness evaluations
     private final int testCnt; // Number of tests to be performed for a fitness evaluation
     private final int timeout; // Timeout of a test
+    private final int k; // Number of individuals to be randomly sampled for tournament selection.
     private final String src; // Name of source file
     private int solutionID = 0; // Identifies a solution when evaluating its fitness
 
-    Population(int size, int fitnessEval, int offspringCnt, int mutationCnt, int testCnt, int timeout, String src, ExecutorService pool, CompilationUnit cu)
+    Population(int size, int fitnessEval, int offspringCnt, int mutationCnt, int testCnt, int timeout, int k, String src, ExecutorService pool, CompilationUnit cu)
     {
         this.size = size;
         this.fitnessEval = fitnessEval - size;
@@ -162,6 +168,7 @@ class Population
         this.mutationCnt = mutationCnt;
         this.testCnt = testCnt;
         this.timeout = timeout;
+        this.k = k;
         this.src = src;
         this.pool = pool;
         solutions = new Solution[size];
@@ -180,33 +187,53 @@ class Population
             fitnessEval -= nextGeneration();
     }
 
-    private int nextGeneration() //////////////////////////////////////////////////////////////////////////////////////NOT FINISHED
+    // Updates the population through the creation of M new solutions (offsprings) that replace 
+    // the M-worst ones of the current generation. Where M is obtained by multiplying the given 
+    // programs arguments that correspond to the population size and the percentage of the
+    // population to be replaced on each generation (see README file).  
+    private int nextGeneration()
     {
         // Set the number of offsprings to be generated (Constrained by fitness evaluation limit)
         int offspringCnt = (this.offspringCnt < fitnessEval)? this.offspringCnt: fitnessEval;
-        // Generate the offsprings
-        Solution offsprings[] = new Solution[offspringCnt];
-        for (int i = 0; i < offspringCnt; i++) {
+        // Generate the offsprings and update the population
+        for (int i = size - offspringCnt; i < size; i++) {
             int parents[] = getParents();
-            offsprings[i] = new Solution(solutions[parents[0]].cu, solutions[parents[1]].cu);
+            solutions[i] = new Solution(solutions[parents[0]].cu, solutions[parents[1]].cu);
         }
         evaluateSolutions();
-        //printSolutions(); // Testing purposes
-        // TODO: Update the population
-
-
+        Arrays.sort(solutions, Population::compareSolutions); /////////////////////////////////////////////////////////Insert in order instead?
         return offspringCnt;
     }
 
-    private int[] getParents() ////////////////////////////////////////////////////////////////////////////////////////NOT FINISHED
+    // Chooses two parents (their index inside the solutions list) so that a new
+    // solution constructor can use them later on (see nextGeneration()).
+    // The parents are chosen through tournament selection by sampling K random
+    // solutions out of the current generation.
+    private int[] getParents()
     {
-        // TODO: Choose parents (their index inside the solutions list)
-        //Log.info("Choosing parents");
         int parents[] = new int[2];
-        parents[0] = 1;
-        parents[1] = 2;
-
-
+        List<Integer> indexes = new ArrayList<>(size);
+        for (int i = 0; i < size; i++)
+            indexes.add(i);
+        Collections.shuffle(indexes);
+        // Select the 2 -out of K- best solutions
+        if (indexes.get(0) < indexes.get(1)) {
+            parents[0] = indexes.get(0);
+            parents[1] = indexes.get(1);
+        } else {
+            parents[0] = indexes.get(1);
+            parents[1] = indexes.get(0);
+        }
+        int idx;
+        for (int i = 2; i < k; i++) {
+            idx = indexes.get(i);
+            if (idx < parents[0]) {
+                parents[1] = parents[0];
+                parents[0] = idx;
+            } else if (idx < parents[1])
+                parents[1] = idx;
+        }
+        Log.info("Parents: " + parents[0] + ", " + parents[1]);
         return parents;
     }
 
@@ -336,7 +363,7 @@ class Population
                     e.printStackTrace();
                 }
             }
-            sol.fitness = successCnt / testCnt; ///////////////////////////////////////////////////////////////////////FINAL???
+            sol.fitness = successCnt / testCnt; ///////////////////////////////////////////////////////////////////////Final???
             // Clean up
             try {
                 Files.delete(sourcePath);
