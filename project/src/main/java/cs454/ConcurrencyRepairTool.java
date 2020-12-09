@@ -7,12 +7,12 @@ import com.github.javaparser.ast.stmt.IfStmt;
 import com.github.javaparser.ast.stmt.Statement;
 import com.github.javaparser.ast.visitor.ModifierVisitor;
 import com.github.javaparser.ast.visitor.Visitable;
-import java.util.Random;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.utils.*;
+import com.github.javaparser.printer.PrettyPrinter;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -20,6 +20,7 @@ import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
+import java.lang.*;
 
 /**
  * Main Class
@@ -76,8 +77,8 @@ class ReparationTool
     private final ExecutorService pool;
     // The path of the Maven module/project which contains the ConcurrencyRepairTool class.
     // appended with a path to "output".
-    private final String outputFile = CodeGenerationUtils.mavenModuleRoot(ConcurrencyRepairTool.class)
-        .resolve(Paths.get("output")).toString();
+    private final Path output = CodeGenerationUtils.mavenModuleRoot(ConcurrencyRepairTool.class)
+        .resolve(Paths.get("output"));
     // Names of source java programs to be modified by the application.
     // All must be inside the src/main/sources folder.
     private String[] sources;
@@ -124,15 +125,16 @@ class ReparationTool
         CompilationUnit cu = this.sourceRoot.parse("", src);
         Log.info("Repairing: " + src);
 
-        Population pop = new Population(popSize, fitnessEval, offspringCnt, mutationCnt, testCnt, timeout, pool, cu);
+        Population pop = new Population(popSize, fitnessEval, offspringCnt, mutationCnt, testCnt, timeout, src, pool, cu);
         pop.evolve();
-        this.sourceRoot.add(this.outputFile, src, pop.bestSolution().cu);
+        // Store the best solution in the /output directory
+        cu = pop.bestSolution().cu;
+        cu.setStorage(this.output.resolve(Paths.get(src)));
+        cu.getStorage().get().save(this.sourceRoot.getPrinter());
     }
 
-    // This saves all the files we just repaired to an output directory. 
     public void finish()
     {
-        this.sourceRoot.saveAll();
         pool.shutdownNow();
     }
 }
@@ -147,10 +149,12 @@ class Population
     private final int mutationCnt; // Number of mutations performed per new offspring
     private final Solution solutions[]; // Sorted array of solutions (by fitness, descending order)
     private final ExecutorService pool; // Threadpool used for fitness evaluations
-    private final int testCnt;
+    private final int testCnt; // Number of tests to be performed for a fitness evaluation
     private final int timeout; // Timeout of a test
+    private final String src; // Name of source file
+    private int solutionID = 0; // Identifies a solution when evaluating its fitness
 
-    Population(int size, int fitnessEval, int offspringCnt, int mutationCnt, int testCnt, int timeout, ExecutorService pool, CompilationUnit cu)
+    Population(int size, int fitnessEval, int offspringCnt, int mutationCnt, int testCnt, int timeout, String src, ExecutorService pool, CompilationUnit cu)
     {
         this.size = size;
         this.fitnessEval = fitnessEval - size;
@@ -158,6 +162,7 @@ class Population
         this.mutationCnt = mutationCnt;
         this.testCnt = testCnt;
         this.timeout = timeout;
+        this.src = src;
         this.pool = pool;
         solutions = new Solution[size];
         // Generate the initial population
@@ -165,7 +170,7 @@ class Population
             solutions[i] = new Solution(cu.clone());
         evaluateSolutions();
         Arrays.sort(solutions, Population::compareSolutions);
-        printSolutions(); // Testing purposes
+        //printSolutions(); // Testing purposes
     }
 
     // Evolve until all fitness evaluations have been performed
@@ -186,7 +191,7 @@ class Population
             offsprings[i] = new Solution(solutions[parents[0]].cu, solutions[parents[1]].cu);
         }
         evaluateSolutions();
-        printSolutions(); // Testing purposes
+        //printSolutions(); // Testing purposes
         // TODO: Update the population
 
 
@@ -241,14 +246,14 @@ class Population
         public float fitness;
     
         // 'Random' solution generator
-        Solution(CompilationUnit cu) ///////////////////////////////////////////NOT FINISHED
+        Solution(CompilationUnit cu) //////////////////////////////////////////////////////////////////////////////////NOT FINISHED
         {
             //Log.info("Creating 'random' solution");
             // TODO: Initialize
             
             this.cu = cu; // Copy of the original (testing only)
     
-            ///////////////////////////////////////////////////////////////////////////////////////////////////////////////SAMPLE JAVAPARSER CODE (TESTING PURPOSES ONLY)
+            ///////////////////////////////////////////////////////////////////////////////////////////////////////////SAMPLE JAVAPARSER CODE (TESTING PURPOSES ONLY)
             /*
             cu.accept(new ModifierVisitor<Void>() {
                  // For every if-statement, see if it has a comparison using "!=".
@@ -272,7 +277,7 @@ class Population
                 }
             }, null);
             */
-            /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     
             // Evaluate
             getFitness();
@@ -295,7 +300,7 @@ class Population
         // evaluated later on by the population object
         private void getFitness()
         {
-            tasks.add(new FitnessEvaluator(this));
+            tasks.add(new FitnessEvaluator(this, solutionID++));
         }
     }
 
@@ -303,47 +308,42 @@ class Population
     private class FitnessEvaluator implements Callable<Void>
     {
         private final Solution sol; // Solution to be evaluated
-        // Actual thread that runs a test. Returns 0 on success, 1 otherwise.
-        private final Test evaluator = new Test();
+        private final int solID; // Identifies the solution
 
-        FitnessEvaluator(Solution sol)
+        FitnessEvaluator(Solution sol, int solID)
         {
             this.sol = sol;
+            this.solID = solID;
         }
 
         public Void call()
-        {   
-            final ExecutorService executor = Executors.newSingleThreadExecutor();
-            Future<Integer> future;
-            int failCnt = 0;
+        {
+            Path sourcePath = CodeGenerationUtils.mavenModuleRoot(ConcurrencyRepairTool.class)
+                .resolve(Paths.get("temp/" + solID + src));
+            // Store source code in a temporary folder (/temp)
+            sol.cu.setStorage(sourcePath);
+            sol.cu.getStorage().get().save(new PrettyPrinter()::print);
+            // Test and set fitness
+            float successCnt = 0; // Amount of times the solution has passed a test
+            ProcessBuilder processBuilder = new ProcessBuilder();
+            processBuilder.command("java", sourcePath.toString());
+            Process p;
             for (int i = 0; i < testCnt; i++) {
-                future = executor.submit(evaluator);
                 try {
-                    failCnt += future.get(timeout, TimeUnit.SECONDS);
-                } catch (TimeoutException e) {
-                    future.cancel(true);
-                    failCnt++; // Timeout test considered a failed one
-                } catch (InterruptedException | ExecutionException e) {
+                    p = processBuilder.start();
+                    if (p.waitFor(timeout, TimeUnit.SECONDS) && p.exitValue() == 0) successCnt++;
+                } catch (InterruptedException | IOException e) {
                     e.printStackTrace();
                 }
             }
-            executor.shutdownNow();
-            sol.fitness = ((float)testCnt - failCnt) / testCnt; //////////////////////////////////////////////////////////////////TESTING PURPOSES ONLY
-            return null;
-        }
-
-        // Class that tests a solution. Returns 0 on success and 1 otherwise.
-        private class Test implements Callable<Integer>
-        {
-            Test() {}
-
-            public Integer call()
-            {
-                // TODO: Run compilation unit and return
-                Random rand = new Random();
-                int i = rand.nextInt();
-                return (i%2 != 0)? 1: 0;
+            sol.fitness = successCnt / testCnt; ///////////////////////////////////////////////////////////////////////FINAL???
+            // Clean up
+            try {
+                Files.delete(sourcePath);
+            } catch (IOException e) {
+                e.printStackTrace();
             }
+            return null;
         }
     }
 }
