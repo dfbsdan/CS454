@@ -233,7 +233,6 @@ class Population
             } else if (idx < parents[1])
                 parents[1] = idx;
         }
-        Log.info("Parents: " + parents[0] + ", " + parents[1]);
         return parents;
     }
 
