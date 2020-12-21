@@ -5,7 +5,6 @@ package cs454;
 import com.github.javaparser.ast.expr.BinaryExpr;
 import com.github.javaparser.ast.stmt.IfStmt;
 import com.github.javaparser.ast.stmt.Statement;
-import com.github.javaparser.ast.visitor.ModifierVisitor;
 import com.github.javaparser.ast.visitor.Visitable;
 */
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -13,6 +12,7 @@ import com.github.javaparser.ast.visitor.Visitable;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.utils.*;
 import com.github.javaparser.printer.PrettyPrinter;
+import com.github.javaparser.ast.visitor.ModifierVisitor;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -201,7 +201,7 @@ class Population
             solutions[i] = new Solution(solutions[parents[0]].cu, solutions[parents[1]].cu);
         }
         evaluateSolutions();
-        Arrays.sort(solutions, Population::compareSolutions); /////////////////////////////////////////////////////////Insert in order instead?
+        Arrays.sort(solutions, Population::compareSolutions);
         return offspringCnt;
     }
 
@@ -272,16 +272,11 @@ class Population
         public float fitness;
     
         // 'Random' solution generator
-        Solution(CompilationUnit cu) //////////////////////////////////////////////////////////////////////////////////NOT FINISHED
+        Solution(CompilationUnit cu)
         {
-            //Log.info("Creating 'random' solution");
-            // TODO: Initialize
-            
-            this.cu = cu; // Copy of the original (testing only)
-    
-            ///////////////////////////////////////////////////////////////////////////////////////////////////////////SAMPLE JAVAPARSER CODE (TESTING PURPOSES ONLY)
-            /*
+            // Initialize    
             cu.accept(new ModifierVisitor<Void>() {
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                  // For every if-statement, see if it has a comparison using "!=".
                  // Change it to "==" and switch the "then" and "else" statements around.
                 @Override
@@ -302,9 +297,8 @@ class Population
                     return super.visit(n, arg);
                 }
             }, null);
-            */
-            /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            this.cu = cu;
             // Evaluate
             getFitness();
         }
@@ -362,7 +356,7 @@ class Population
                     e.printStackTrace();
                 }
             }
-            sol.fitness = successCnt / testCnt; ///////////////////////////////////////////////////////////////////////Final???
+            sol.fitness = successCnt / testCnt;
             // Clean up
             try {
                 Files.delete(sourcePath);
