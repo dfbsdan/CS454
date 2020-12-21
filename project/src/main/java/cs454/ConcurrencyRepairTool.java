@@ -1,13 +1,12 @@
 package cs454;
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////TEMPORARY CODE(?)
-/*
+
 import com.github.javaparser.ast.expr.BinaryExpr;
 import com.github.javaparser.ast.stmt.IfStmt;
 import com.github.javaparser.ast.stmt.Statement;
 import com.github.javaparser.ast.visitor.Visitable;
-*/
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.utils.*;
@@ -27,7 +26,7 @@ public class ConcurrencyRepairTool
 {
     public static void main( String[] args )
     {
-        if(args.length != 8) { ////////////////////////////////////////////////////////////////////////////////////////MAY CHANGE
+        if(args.length != 8) { ///// MAY CHANGE
             throw new IllegalArgumentException("Wrong amount of arguments.");
         }
         int populationSize = Integer.parseInt(args[0]);
@@ -174,7 +173,7 @@ class Population
         solutions = new Solution[size];
         // Generate the initial population
         for (int i = 0; i < size; i++)
-            solutions[i] = new Solution(cu.clone());
+            solutions[i] = new Solution(cu.clone(), this.mutationCnt);
         evaluateSolutions();
         Arrays.sort(solutions, Population::compareSolutions);
         //printSolutions(); // Testing purposes
@@ -198,7 +197,7 @@ class Population
         // Generate the offsprings and update the population
         for (int i = size - offspringCnt; i < size; i++) {
             int parents[] = getParents();
-            solutions[i] = new Solution(solutions[parents[0]].cu, solutions[parents[1]].cu);
+            solutions[i] = new Solution(solutions[parents[0]].cu, solutions[parents[1]].cu, this.mutationCnt);
         }
         evaluateSolutions();
         Arrays.sort(solutions, Population::compareSolutions);
@@ -272,21 +271,37 @@ class Population
         public float fitness;
     
         // 'Random' solution generator
-        Solution(CompilationUnit cu)
+        Solution(CompilationUnit cu, final int mutationCnt)
         {
-            // Initialize    
-            cu.accept(new ModifierVisitor<Void>() {
-            ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                 // For every if-statement, see if it has a comparison using "!=".
-                 // Change it to "==" and switch the "then" and "else" statements around.
+            // Initialize
+            this.cu = cu;
+            for (int i = 0; i < mutationCnt; i++)
+                this.mutate();
+            // Evaluate
+            getFitness();
+        }
+    
+        // Creates a solution based on two given parents (i.e. their compilation units)
+        Solution(CompilationUnit p1, CompilationUnit p2, final int mutationCnt)
+        {
+            // Inherit
+            cu = p1.clone();
+    
+            // Mutate
+            for (int i = 0; i < mutationCnt; i++)
+                this.mutate();
+            // Evaluate
+            getFitness();
+        }
+
+        private void mutate() 
+        {
+            ///// TESTING
+            this.cu.accept(new ModifierVisitor<Void>() {
                 @Override
                 public Visitable visit(IfStmt n, Void arg) {
-                    // Figure out what to get and what to cast simply by looking at the AST in a debugger! 
                     n.getCondition().ifBinaryExpr(binaryExpr -> {
                         if (binaryExpr.getOperator() == BinaryExpr.Operator.NOT_EQUALS && n.getElseStmt().isPresent()) {
-                            // It's a good idea to clone nodes that you move around.
-                            //    JavaParser (or you) might get confused about who their parent is!
-                            //
                             Statement thenStmt = n.getThenStmt().clone();
                             Statement elseStmt = n.getElseStmt().get().clone();
                             n.setThenStmt(elseStmt);
@@ -297,23 +312,6 @@ class Population
                     return super.visit(n, arg);
                 }
             }, null);
-            ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-            this.cu = cu;
-            // Evaluate
-            getFitness();
-        }
-    
-        // Creates a solution based on two given parents (i.e. their compilation units)
-        Solution(CompilationUnit p1, CompilationUnit p2) ///////////////////////NOT FINISHED
-        {
-            //Log.info("Creating offspring solution");
-            // TODO: Inherit
-            cu = p1.clone();
-    
-            // TODO: Mutate
-    
-            // Evaluate
-            getFitness();
         }
     
         // Adds the current solution to the tasks list so that its fitness can be
